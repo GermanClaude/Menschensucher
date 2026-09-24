@@ -144,3 +144,30 @@ dialog h2 { margin: 0 0 6px; font-size: 18px; }
 .opt small { color: var(--muted); }
 .err-text { color: var(--err); font-size: 14px; min-height: 1em; }
 .toolbar.end { justify-content: flex-end; margin: 8px 0 0; }
+
+/* Steckbrief & Social Media */
+.summary-head { display: flex; gap: 14px; align-items: center; margin-bottom: 10px; }
+.summary-head img { width: 96px; height: 120px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); flex: none; }
+.sum-name { font-size: 22px !important; margin: 0 !important; }
+.desc { color: var(--muted); margin: 2px 0; }
+dl.facts.summary dt { font-weight: 600; color: var(--text); padding-top: 6px; }
+dl.facts.summary dd { padding-top: 6px; }
+.facts-list { list-style: none; margin: 0; padding: 0; }
+.facts-list li { padding: 1px 0; }
+.src { color: var(--muted); font-size: 12px; }
+.pchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }
+.pchip { border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 14px; text-decoration: none; background: var(--panel2); color: var(--text); }
+.pchip.ok { border-color: var(--ok); color: var(--ok); }
+.platform { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 12px; scroll-margin-top: 12px; }
+.platform h3 { margin: 0 0 4px; }
+.badges { display: flex; flex-wrap: wrap; gap: 4px; margin: 2px 0; }
+.badge { font-size: 11px; border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--muted); }
+.badge.ok { border-color: var(--ok); color: var(--ok); }
+.feed-box { margin-top: 8px; padding: 8px 12px; background: var(--panel2); border-radius: 10px; }
+.feed li { font-size: 14px; }
+.posttext { white-space: pre-wrap; overflow-wrap: anywhere; margin: 2px 0 4px; }
+.replies { margin: 6px 0 0 8px; padding-left: 10px; border-left: 3px solid var(--line); }
+.missing a { color: var(--muted); }
+details.mentions summary { cursor: pointer; font-size: 14px; color: var(--muted); margin-top: 4px; }
+@media print { .btn.small { display: none; } }
+.pchip.weak { opacity: .7; border-style: dashed; }

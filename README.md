@@ -10,6 +10,9 @@ Selbstständige und alle zu finden, die sich online präsentieren.
 
 | Bereich | Quelle |
 |---|---|
+| **Steckbrief – alles Wichtige auf einen Blick:** Tätigkeiten & Rollen, Unternehmen, Orte, Ausbildung, Websites, soziale Medien, öffentliche Spuren und Selbstbeschreibungen – automatisch aus allen Quellen zusammengefasst, mit Quellenangabe hinter jeder Angabe, als Text kopierbar | alle unten |
+| **Soziale Medien:** auf welchen Plattformen die Person ein Profil hat (LinkedIn, XING, Instagram, Facebook, X, TikTok, YouTube, Bluesky, Mastodon, Threads, GitHub, Reddit u. a.), dazu gefundene Beiträge | Websuche, Wikidata, Namenssuche auf Bluesky, Mastodon und GitHub |
+| **Beiträge & Kommentare** direkt auf der Seite – inklusive der Kommentare unter jedem Beitrag, soweit die Plattform sie öffentlich herausgibt | Bluesky, Mastodon, GitHub, Hacker News, Reddit (wenn Reddit es zulässt) |
 | **Im Internet gefunden:** eigene Websites, LinkedIn/XING/Instagram & Co., Firmen & Handelsregister-Auszüge (North Data, CompanyHouse …), Presse, Interviews, Podcasts – automatisch sortiert | Websuche im ganzen Internet (mehrere Suchen pro Person: allgemein, Beruf & Unternehmen, Profile, eigene Website, Auftritte) |
 | **Seite auslesen:** zeigt bei jedem Treffer, was dort über die Person steht (Stellen mit dem Namen + ganzer Text) | Jina Reader |
 | Steckbrief: Geburt, Tod, Beruf, Ausbildung, Arbeitgeber, Partei, Mitgliedschaften, offizielle Profile | Wikidata |
@@ -28,6 +31,19 @@ als PDF speichern, und jede Suche hat einen teilbaren Link (`…/#name=Marie+Cur
 **Suche mit Bild** – Rückwärts-Bildersuche über Google Lens, Bing und TinEye. Sie findet heraus, *wo dieses Bild*
 im Netz veröffentlicht ist (Artikel, Wikipedia, Firmenseite) – dort steht meist der Name. Den gefundenen Namen
 kann man direkt an die Namenssuche übergeben.
+
+### Welche Plattformen zeigen Beiträge und Kommentare?
+
+| Plattform | Beiträge & Kommentare auf der Seite |
+|---|---|
+| Bluesky, Mastodon | ja – Beiträge, Antworten und die Kommentare darunter |
+| GitHub | ja – Kommentare, Issues, Pull Requests, Commits |
+| Hacker News | ja – Kommentare |
+| Reddit | nur wenn Reddit die Abfrage zulässt (blockt oft ohne Anmeldung) |
+| Instagram, Facebook, X, LinkedIn, XING, TikTok, Threads, YouTube | nein – nur mit Anmeldung sichtbar; die Seite zeigt Profil-Link, gefundene Beiträge und kann die öffentliche Profilseite auslesen |
+
+Profile, die nur über den gleichen Namen gefunden wurden, stehen eingeklappt unter „Konten mit gleichem Namen“ und fließen nicht in
+den Steckbrief ein. Mit einem Suchzusatz (Firma, Ort, Beruf) werden passende Profile erkannt und grün markiert.
 
 ### Websuche einstellen (⚙ oben rechts)
 
@@ -64,6 +80,7 @@ API-Schlüssel werden nur im eigenen Browser gespeichert (localStorage) und nur 
 - `index.html` – Seitenaufbau
 - `style.css` – Design (hell/dunkel, handytauglich)
 - `app.js` – Suchlogik und Quellen
+- `dossier.js` – Steckbrief-Zusammenfassung, Social-Media-Erkennung, Beiträge & Kommentare
 
 ## Verantwortungsvoll nutzen
 

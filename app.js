@@ -62,6 +62,7 @@ function card(id, title) {
   const node = h("section", {class: "card", id: "sec-" + id}, h("div", {class: "sec-head"}, h("h2", {}, title), status), body);
   return {
     node, body,
+    busy() { node.hidden = false; status.className = "status"; status.replaceChildren(h("span", {class: "spinner"}), " sammelt …"); },
     loading() { node.hidden = false; status.className = "status"; status.replaceChildren(h("span", {class: "spinner"}), " lädt …"); body.replaceChildren(); },
     done(text = "") { status.className = "status"; status.textContent = text; },
     fail(err) { status.className = "status err"; status.textContent = "Fehler"; body.replaceChildren(h("p", {class: "empty"}, `Quelle nicht verfügbar: ${err.message || err}`)); },
@@ -224,7 +225,9 @@ async function runSearch(name, ctx = "") {
   cands.hidden = true; cands.replaceChildren();
 
   S = {
-    profile: card("profile", "Steckbrief"),
+    summary: card("summary", "Steckbrief – alles Wichtige auf einen Blick"),
+    social: card("social", "Soziale Medien – wo die Person unterwegs ist"),
+    profile: card("profile", "Öffentliches Profil (Wikipedia/Wikidata)"),
     web: card("web", "Im Internet gefunden"),
     wiki: card("wiki", "Leben & Wirken (Wikipedia)"),
     timeline: card("timeline", "Ämter, Funktionen & Stationen"),
@@ -243,8 +246,10 @@ async function runSearch(name, ctx = "") {
       h("button", {class: "btn", type: "button", onclick: copyShareLink}, "Link zu dieser Suche kopieren")),
     ...Object.values(S).map((c) => c.node));
 
+  dossierReset(name, ctx, seq, S.summary, S.social);
   renderLinks(S.links, name, ctx);
-  loadWeb(S.web, name, ctx, seq);
+  loadWeb(S.web, name, ctx, seq).finally(() => dossierDone("web", seq));
+  loadSocial(name, seq).finally(() => dossierDone("social", seq));
   loadNews(S.news, name, ctx, seq);
   loadArchive(S.archive, name, seq);
 
@@ -256,6 +261,7 @@ async function runSearch(name, ctx = "") {
     S.profile.fail(err);
   }
   if (seq !== searchSeq) return;
+  if (!people.length) dossierDone("wikidata", seq);
 
   if (!people.length) {
     if (!S.profile.node.querySelector(".empty")) {
@@ -286,6 +292,7 @@ async function showPerson(entity, searchedName, seq) {
   const pseq = ++personSeq;
   const alive = () => seq === searchSeq && pseq === personSeq;
   for (const c of [S.profile, S.wiki, S.timeline, S.awards, S.works, S.gnd, S.science]) c.loading();
+  D.pending.add("wikidata");
 
   // Alle referenzierten Einträge (Orte, Ämter, Parteien …) auf einmal beschriften.
   const refs = [];
@@ -298,6 +305,8 @@ async function showPerson(entity, searchedName, seq) {
   if (!alive()) return;
 
   renderProfile(S.profile, entity);
+  dossierFromWikidata(entity, seq);
+  dossierDone("wikidata", seq);
   renderTimeline(S.timeline, entity);
   renderAwards(S.awards, entity);
   renderWorks(S.works, entity);
@@ -447,6 +456,7 @@ async function loadNews(c, name, ctx, seq) {
     if (seq !== searchSeq) return;
     const seen = new Set();
     const articles = (data.articles || []).filter((a) => { const k = a.title?.toLowerCase(); if (!k || seen.has(k)) return false; seen.add(k); return true; });
+    addCount("news", articles.length);
     if (!articles.length) return c.empty("Keine Nachrichten der letzten 3 Monate. Ältere Berichte findest du über die Nachrichten-Links unten.");
     fill(c.body, h("ul", {class: "list"}, articles.slice(0, 25).map((a) => h("li", {},
       extLink(a.url, a.title), h("div", {class: "meta"}, [a.domain, gdeltDate(a.seendate), a.language].filter(Boolean).join(" · "))))),
@@ -468,6 +478,7 @@ async function loadGnd(c, person, seq, alive = () => seq === searchSeq) {
     }
     if (!alive()) return;
     if (!members.length) return c.empty("Kein Eintrag in der Gemeinsamen Normdatei.");
+    dossierFromGnd(members, !!person.gnd, seq);
     const labels = (arr) => (arr || []).map((x) => x.label || x).filter(Boolean).join(", ");
     fill(c.body, 
       person.gnd ? null : h("p", {class: "meta"}, "Treffer über den Namen – kann andere Personen gleichen Namens enthalten."),
@@ -509,6 +520,7 @@ async function loadScience(c, person, seq, alive = () => seq === searchSeq) {
     }
     if (authors.length) {
       const top = authors[0];
+      if (alive() && (person.orcid || fold(top.display_name) === fold(person.name))) dossierFromScience(top, !!person.orcid, seq);
       const works = await getJSON(`https://api.openalex.org/works?${qs({filter: `author.id:${top.id.split("/").pop()}`, sort: "cited_by_count:desc", "per-page": 8})}`);
       blocks.push(
         h("h3", {}, "Autor:innen-Profile (OpenAlex)"),
@@ -561,6 +573,7 @@ async function loadArchive(c, name, seq) {
     const data = await getJSON(`https://archive.org/advancedsearch.php?${params}`);
     if (seq !== searchSeq) return;
     const docs = data.response?.docs || [];
+    addCount("archive", data.response?.numFound || 0);
     if (!docs.length) return c.empty("Nichts im Internet Archive gefunden.");
     const TYPES = {texts: "Text/Buch", movies: "Video", audio: "Audio", image: "Bild", software: "Software", web: "Webseite", collection: "Sammlung", etree: "Konzert"};
     const flat = (v) => (Array.isArray(v) ? v.join(", ") : v);
@@ -759,6 +772,8 @@ async function loadWeb(c, name, ctx, seq) {
     return c.empty("Keine Treffer im Internet gefunden.");
   }
   for (const r of results) r.cat = categorize(r, nameWords);
+  dossierFromWeb(results, name, seq);
+  addCount("web", results.filter((r) => r.match > 0).length);
 
   const blocks = [];
   if (kg?.title) {
@@ -1045,5 +1060,5 @@ function init() {
   }
 }
 
-if (typeof document !== "undefined") init();
+if (typeof document !== "undefined") document.addEventListener("DOMContentLoaded", init);
 if (typeof module !== "undefined") module.exports = {formatTime, ageOf, parseSections, gdeltDate, fold, cleanMarkdown, bingTarget};
