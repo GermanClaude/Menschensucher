@@ -39,10 +39,10 @@ kann man direkt an die Namenssuche übergeben.
 
 **Online über GitHub Pages (kostenlos):**
 
-1. Auf GitHub: **Settings → Pages → Build and deployment → Source: „GitHub Actions“** wählen.
-2. Unter **Actions → „Auf GitHub Pages veröffentlichen“ → Run workflow** einmal starten.
-   Danach wird die Seite bei jedem Push auf `main` automatisch aktualisiert.
-3. Die Adresse lautet dann `https://germanclaude.github.io/Menschensucher/`.
+1. Auf GitHub: **Settings → Pages → Build and deployment**
+2. **Source:** „Deploy from a branch“, **Branch:** `main`, Ordner **`/ (root)`** → **Save**
+3. Nach 1–2 Minuten ist die Seite online unter `https://germanclaude.github.io/Menschensucher/`
+   und aktualisiert sich bei jedem Push auf `main` von selbst.
 
 ## Dateien
 
