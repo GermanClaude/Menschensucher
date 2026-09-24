@@ -1,7 +1,8 @@
 # Menschensucher – Personensuche
 
 Eine Suchmaschine für Personen als reine HTML-Website – ohne Server, ohne Anmeldung, ohne API-Schlüssel.
-Alles läuft im Browser und fragt **nur öffentliche, legale Quellen** ab.
+Alles läuft im Browser und durchsucht **das gesamte öffentlich zugängliche Internet** – ideal, um Unternehmer:innen,
+Selbstständige und alle zu finden, die sich online präsentieren.
 
 ## Was sie kann
 
@@ -9,6 +10,8 @@ Alles läuft im Browser und fragt **nur öffentliche, legale Quellen** ab.
 
 | Bereich | Quelle |
 |---|---|
+| **Im Internet gefunden:** eigene Websites, LinkedIn/XING/Instagram & Co., Firmen & Handelsregister-Auszüge (North Data, CompanyHouse …), Presse, Interviews, Podcasts – automatisch sortiert | Websuche im ganzen Internet (mehrere Suchen pro Person: allgemein, Beruf & Unternehmen, Profile, eigene Website, Auftritte) |
+| **Seite auslesen:** zeigt bei jedem Treffer, was dort über die Person steht (Stellen mit dem Namen + ganzer Text) | Jina Reader |
 | Steckbrief: Geburt, Tod, Beruf, Ausbildung, Arbeitgeber, Partei, Mitgliedschaften, offizielle Profile | Wikidata |
 | Leben & Wirken (ganzer Artikel, nach Abschnitten) | Wikipedia (de, sonst en) |
 | Ämter, Funktionen & Stationen als Zeitleiste | Wikidata |
@@ -26,12 +29,24 @@ als PDF speichern, und jede Suche hat einen teilbaren Link (`…/#name=Marie+Cur
 im Netz veröffentlicht ist (Artikel, Wikipedia, Firmenseite) – dort steht meist der Name. Den gefundenen Namen
 kann man direkt an die Namenssuche übergeben.
 
+### Websuche einstellen (⚙ oben rechts)
+
+| Einstellung | Kosten | Hinweis |
+|---|---|---|
+| Kostenlos, ohne Anmeldung (Standard) | gratis | DuckDuckGo, bei Bedarf automatisch DuckDuckGo Lite oder Bing, abgerufen über Jina Reader. Kann bei vielen gleichzeitigen Suchen kurz überlastet sein. |
+| Google-Ergebnisse über [Serper.dev](https://serper.dev) | 2.500 Suchen gratis | beste Trefferqualität |
+| [Tavily](https://tavily.com) | 1.000 Suchen/Monat gratis | |
+| [Jina Search](https://jina.ai) | Gratis-Kontingent | ein Jina-Schlüssel erhöht auch die Limits für „Seite auslesen“ |
+
+API-Schlüssel werden nur im eigenen Browser gespeichert (localStorage) und nur an den jeweiligen Anbieter geschickt.
+
 ### Bewusst nicht enthalten
 
 - **Gesichtserkennung** (PimEyes, FaceCheck.ID, Yandex-Gesichtssuche): Gesichter sind nach DSGVO Art. 9 besonders
   geschützte biometrische Daten, und solche Dienste werden oft zum Stalken von Privatpersonen missbraucht.
   Die Bildsuche findet deshalb *dasselbe Bild*, nicht *dasselbe Gesicht*.
-- Personensuchmaschinen, Adresshändler, Leak- und Passwort-Datenbanken, Darknet.
+- Personensuchmaschinen, Adresshändler, Leak- und Passwort-Datenbanken, Doxing-Foren, Darknet – Treffer von solchen
+  Seiten werden in der Websuche automatisch ausgeblendet.
 
 ## Starten
 

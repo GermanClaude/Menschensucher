@@ -7,6 +7,8 @@
  *   OpenAlex + ORCID       wissenschaftliche Veröffentlichungen
  *   GDELT                  weltweite Nachrichten der letzten 3 Monate
  *   Internet Archive       Bücher, Filme, Audio, Dokumente
+ *   Websuche               gesamtes öffentliches Internet (DuckDuckGo über Jina Reader, optional Google via Serper,
+ *                          Tavily oder Jina mit eigenem Schlüssel) + Auslesen gefundener Seiten
  * Bewusst NICHT enthalten: Personensuchmaschinen/Datenhändler, Leak-Datenbanken, Gesichtserkennung.
  */
 
@@ -31,13 +33,14 @@ const fill = (node, ...children) => node.replaceChildren(...children.flat().filt
 const extLink = (href, text) => h("a", {href, target: "_blank", rel: "noopener noreferrer"}, text || href);
 
 // ------------------------------------------------------------------ Netzwerk
-async function getJSON(url, {timeout = 20000, headers} = {}) {
+async function getJSON(url, {timeout = 20000, headers, method, body} = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeout);
   try {
-    const res = await fetch(url, {signal: ctrl.signal, headers});
+    const res = await fetch(url, {signal: ctrl.signal, headers, method, body});
     const text = await res.text();
     if (res.status === 429) throw new Error("Zu viele Anfragen – bitte kurz warten und erneut suchen.");
+    if (res.status === 401 || res.status === 403) throw new Error(`Zugriff verweigert (HTTP ${res.status}) – API-Schlüssel prüfen`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     try { return JSON.parse(text); } catch { throw new Error(text.slice(0, 160) || "Ungültige Antwort"); }
   } catch (err) {
@@ -222,6 +225,7 @@ async function runSearch(name, ctx = "") {
 
   S = {
     profile: card("profile", "Steckbrief"),
+    web: card("web", "Im Internet gefunden"),
     wiki: card("wiki", "Leben & Wirken (Wikipedia)"),
     timeline: card("timeline", "Ämter, Funktionen & Stationen"),
     awards: card("awards", "Auszeichnungen & Ehrungen"),
@@ -240,6 +244,7 @@ async function runSearch(name, ctx = "") {
     ...Object.values(S).map((c) => c.node));
 
   renderLinks(S.links, name, ctx);
+  loadWeb(S.web, name, ctx, seq);
   loadNews(S.news, name, ctx, seq);
   loadArchive(S.archive, name, seq);
 
@@ -254,8 +259,8 @@ async function runSearch(name, ctx = "") {
 
   if (!people.length) {
     if (!S.profile.node.querySelector(".empty")) {
-      S.profile.empty("Kein Eintrag in Wikipedia/Wikidata gefunden. Die Person ist vermutlich nicht öffentlich bekannt – " +
-        "nutze die weiterführenden Suchen unten. Bei Privatpersonen gilt: nur suchen, wenn du einen berechtigten Grund hast.");
+      S.profile.empty("Kein Eintrag in Wikipedia/Wikidata – die Person ist nicht als Person des öffentlichen Lebens erfasst. " +
+        "Ihre Websites, Profile und Firmen findest du unten unter „Im Internet gefunden“. Bei Privatpersonen gilt: nur suchen, wenn du einen berechtigten Grund hast.");
     }
     S.wiki.hide(); S.timeline.hide(); S.awards.hide(); S.works.hide();
     loadGnd(S.gnd, {name}, seq);
@@ -567,6 +572,282 @@ async function loadArchive(c, name, seq) {
   } catch (err) { if (seq === searchSeq) c.fail(err); }
 }
 
+
+// ------------------------------------------------------------------ Websuche (gesamtes öffentliches Internet)
+// Seiten, die gezielt Privatleute ausforschen oder gestohlene Daten verbreiten, werden nie angezeigt.
+const BLOCKED_DOMAINS = [
+  "spokeo.com", "whitepages.com", "radaris.com", "radaris.de", "beenverified.com", "truepeoplesearch.com",
+  "fastpeoplesearch.com", "peoplefinders.com", "intelius.com", "mylife.com", "instantcheckmate.com", "truthfinder.com",
+  "peekyou.com", "thatsthem.com", "pimeyes.com", "facecheck.id", "dehashed.com", "snusbase.com", "leakcheck.io",
+  "intelx.io", "leak-lookup.com", "doxbin.com", "doxbin.org", "kiwifarms.net", "kiwifarms.st",
+];
+const CATEGORIES = [
+  ["own", "Mögliche eigene Website", null],
+  ["profile", "Profile & Social Media", /(^|\.)(linkedin\.com|xing\.com|instagram\.com|facebook\.com|x\.com|twitter\.com|tiktok\.com|youtube\.com|github\.com|threads\.net|bsky\.app|pinterest\.[a-z.]+|about\.me|linktr\.ee|medium\.com|behance\.net|dribbble\.com|soundcloud\.com|twitch\.tv|reddit\.com|substack\.com|vimeo\.com|spotify\.com)$/],
+  ["business", "Unternehmen, Register & Branchenbücher", /(northdata\.|companyhouse\.de|firmenwissen\.de|handelsregister|unternehmensregister\.de|bundesanzeiger\.de|opencorporates\.com|creditreform|crunchbase\.com|kununu\.com|gelbeseiten\.de|dasoertliche\.de|11880\.com|wlw\.de|moneyhouse\.|firmen|unternehmen|provenexpert\.com|trustpilot\.|jameda\.de|doctolib\.|anwalt\.de|golocal\.de|yelp\.)/],
+  ["press", "Presse, Blogs & Medien", /(spiegel\.de|zeit\.de|faz\.net|sueddeutsche\.de|welt\.de|handelsblatt\.com|tagesschau\.de|n-tv\.de|focus\.de|stern\.de|bild\.de|t-online\.de|br\.de|ndr\.de|wdr\.de|swr\.de|mdr\.de|zdf\.de|ard\.de|deutschlandfunk|rnd\.de|merkur\.de|tz\.de|wiwo\.de|manager-magazin|businessinsider|gruenderszene|t3n\.de|forbes\.|bloomberg\.com|reuters\.com|nytimes\.com|theguardian\.com|bbc\.|cnn\.com|presseportal\.de|zeitung|news|nachrichten|kurier|anzeiger|rundschau|tagblatt|morgenpost|abendblatt|podcast)/],
+  ["knowledge", "Nachschlagewerke & Wissenschaft", /(wikipedia\.org|wikidata\.org|researchgate\.net|scholar\.google|orcid\.org|academia\.edu|dnb\.de|deutsche-biographie\.de|\.edu$|uni-|universit|hochschule)/],
+  ["other", "Weitere Websites", null],
+];
+const ENGINE_INFO = {
+  free: "DuckDuckGo über Jina Reader (kostenlos, ohne Schlüssel)",
+  serper: "Google über Serper.dev", tavily: "Tavily", jina: "Jina Search",
+};
+
+function webSettings() {
+  const cfg = {engine: storage.get("engine") || "free"};
+  for (const k of ["serperKey", "tavilyKey", "jinaKey"]) cfg[k] = storage.get(k) || "";
+  if (cfg.engine !== "free" && !cfg[cfg.engine + "Key"]) cfg.engine = "free";
+  return cfg;
+}
+function jinaHeaders(extra = {}) {
+  const key = webSettings().jinaKey;
+  return {Accept: "application/json", ...(key ? {Authorization: `Bearer ${key}`} : {}), ...extra};
+}
+
+const hostOf = (url) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; } };
+const fold = (t) => t.toLowerCase().replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss")
+  .normalize("NFD").replace(/[̀-ͯ]/g, "");
+const isBlocked = (host) => BLOCKED_DOMAINS.some((d) => host === d || host.endsWith("." + d));
+
+// Ergebnisseiten der kostenlosen Suchmaschinen auslesen (Weiterleitungs-Links werden aufgelöst).
+function ddgTarget(href) {
+  try { const u = new URL(href, "https://duckduckgo.com"); return u.searchParams.get("uddg") || u.href; } catch { return ""; }
+}
+function bingTarget(href) {
+  try {
+    const u = new URL(href, "https://www.bing.com");
+    const enc = u.searchParams.get("u");
+    if (u.hostname.endsWith("bing.com") && enc?.startsWith("a1")) {
+      const b64 = enc.slice(2).replace(/-/g, "+").replace(/_/g, "/");
+      return decodeURIComponent(escape(atob(b64 + "===".slice((b64.length + 3) % 4))));
+    }
+    return u.href;
+  } catch { return ""; }
+}
+const SERP_PARSERS = {
+  ddg: (doc) => [...doc.querySelectorAll(".result:not(.result--ad)")].map((r) => {
+    const a = r.querySelector("a.result__a");
+    return a && {title: a.textContent, url: ddgTarget(a.getAttribute("href")), snippet: r.querySelector(".result__snippet")?.textContent};
+  }),
+  ddglite: (doc) => [...doc.querySelectorAll("a.result-link")].map((a) => ({
+    title: a.textContent, url: ddgTarget(a.getAttribute("href")),
+    snippet: a.closest("tr")?.nextElementSibling?.querySelector(".result-snippet")?.textContent,
+  })),
+  bing: (doc) => [...doc.querySelectorAll("li.b_algo")].map((li) => {
+    const a = li.querySelector("h2 a");
+    return a && {title: a.textContent, url: bingTarget(a.getAttribute("href")), snippet: li.querySelector(".b_caption p, .b_lineclamp2, .b_lineclamp3, .b_lineclamp4")?.textContent};
+  }),
+};
+function parseSerp(kind, html) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return SERP_PARSERS[kind](doc).filter(Boolean)
+    .map((r) => ({title: (r.title || "").trim(), url: r.url, snippet: (r.snippet || "").replace(/\s+/g, " ").replace(/\s*Mehr lesen$/, "").trim()}))
+    .filter((r) => /^https?:\/\//.test(r.url) && !/(duckduckgo\.com\/(y\.js|l\/)|bing\.com\/(ck|aclick))/.test(r.url));
+}
+const FREE_ENGINES = [
+  ["ddg", (q) => `https://html.duckduckgo.com/html/?${qs({q, kl: "de-de"})}`],
+  ["ddglite", (q) => `https://lite.duckduckgo.com/lite/?${qs({q, kl: "de-de"})}`],
+  ["bing", (q) => `https://www.bing.com/search?${qs({q, setlang: "de", count: 30})}`],
+];
+
+// Jina Reader lädt beliebige öffentliche Seiten mit CORS-Freigabe; bei Überlastung einmal neu versuchen.
+async function jinaRead(url, extraHeaders = {}) {
+  const opts = {timeout: 60000, headers: jinaHeaders(extraHeaders)};
+  try {
+    return await getJSON(`https://r.jina.ai/${url}`, opts);
+  } catch (err) {
+    await new Promise((r) => setTimeout(r, 4000));
+    try { return await getJSON(`https://r.jina.ai/${url}`, opts); } catch (err2) {
+      if (/nicht erreichbar/.test(err2.message)) throw new Error("Jina Reader ist gerade überlastet (Anfragelimit) – bitte in einer Minute erneut versuchen");
+      throw err2;
+    }
+  }
+}
+
+async function searchWeb(q, cfg) {
+  if (cfg.engine === "serper") {
+    const d = await getJSON("https://google.serper.dev/search", {method: "POST", timeout: 30000,
+      headers: {"X-API-KEY": cfg.serperKey, "Content-Type": "application/json"}, body: JSON.stringify({q, gl: "de", hl: "de", num: 20})});
+    return {results: (d.organic || []).map((r) => ({title: r.title, url: r.link, snippet: [r.date, r.snippet].filter(Boolean).join(" – ")})),
+      kg: d.knowledgeGraph};
+  }
+  if (cfg.engine === "tavily") {
+    const d = await getJSON("https://api.tavily.com/search", {method: "POST", timeout: 40000,
+      headers: {Authorization: `Bearer ${cfg.tavilyKey}`, "Content-Type": "application/json"}, body: JSON.stringify({query: q, max_results: 20})});
+    return {results: (d.results || []).map((r) => ({title: r.title, url: r.url, snippet: (r.content || "").slice(0, 300)}))};
+  }
+  if (cfg.engine === "jina") {
+    const d = await getJSON(`https://s.jina.ai/?${qs({q})}`, {timeout: 45000, headers: jinaHeaders({"X-Respond-With": "no-content"})});
+    return {results: (d.data || []).map((r) => ({title: r.title, url: r.url, snippet: r.description || ""}))};
+  }
+  // Kostenlos: nacheinander DuckDuckGo, DuckDuckGo Lite und Bing, bis eine Seite Treffer liefert
+  // (Suchmaschinen zeigen gelegentlich eine Bot-Abfrage statt Ergebnissen).
+  let lastErr = null;
+  for (const [kind, build] of FREE_ENGINES) {
+    try {
+      const d = await jinaRead(build(q), {"X-Return-Format": "html"});
+      const results = parseSerp(kind, d.data?.html || "");
+      if (results.length) return {results};
+    } catch (err) { lastErr = err; }
+  }
+  if (lastErr) throw lastErr;
+  return {results: []};
+}
+
+function webQueries(name, ctx) {
+  const p = `"${name.replace(/"/g, "")}"`, c = ctx ? " " + ctx : "";
+  return [
+    ["Allgemein", `${p}${c}`],
+    ["Beruf & Unternehmen", `${p}${c} Geschäftsführer OR Inhaber OR Gründer OR CEO OR Unternehmer`],
+    ["Profile", `${p}${c} LinkedIn OR XING OR Instagram OR Profil`],
+    ["Eigene Website", `${p}${c} Impressum OR "über mich" OR about`],
+    ["Auftritte", `${p}${c} Interview OR Vortrag OR Podcast OR Artikel`],
+  ];
+}
+
+async function pool(items, limit, worker) {
+  const out = new Array(items.length);
+  let next = 0;
+  await Promise.all(Array.from({length: Math.min(limit, items.length)}, async () => {
+    while (next < items.length) { const i = next++; out[i] = await worker(items[i]).then((v) => ({ok: v}), (e) => ({err: e})); }
+  }));
+  return out;
+}
+
+function categorize(r, nameWords) {
+  const host = hostOf(r.url);
+  const flatHost = fold(host).replace(/[^a-z0-9]/g, "");
+  const surname = nameWords[nameWords.length - 1];
+  if (surname && surname.length > 2 && flatHost.includes(surname) && !CATEGORIES.slice(1, 5).some(([, , re]) => re.test(host))) return "own";
+  for (const [key, , re] of CATEGORIES) if (re && re.test(host)) return key;
+  return "other";
+}
+
+async function loadWeb(c, name, ctx, seq) {
+  c.loading();
+  const cfg = webSettings();
+  // Ohne eigenen Schlüssel weniger Teilsuchen, damit das Gratis-Limit des Jina Readers reicht.
+  const queries = webQueries(name, ctx).slice(0, cfg.engine === "free" && !cfg.jinaKey ? 4 : 5);
+  const outcomes = await pool(queries, cfg.engine === "free" ? 2 : 3, ([, q]) => searchWeb(q, cfg));
+  if (seq !== searchSeq) return;
+
+  const nameWords = fold(name).split(/\s+/).map((w) => w.replace(/[^a-z0-9-]/g, "")).filter(Boolean);
+  const surname = nameWords.length > 1 ? nameWords[nameWords.length - 1] : "";
+  const byUrl = new Map();
+  let kg = null, blocked = 0;
+  const errors = [];
+  outcomes.forEach((o, i) => {
+    if (o.err) { errors.push(o.err.message || String(o.err)); return; }
+    kg ||= o.ok.kg;
+    for (const r of o.ok.results) {
+      const host = hostOf(r.url);
+      if (!host) continue;
+      if (isBlocked(host)) { blocked++; continue; }
+      const key = r.url.replace(/[#?].*$/, "").replace(/\/$/, "");
+      if (byUrl.has(key)) { byUrl.get(key).via.add(queries[i][0]); continue; }
+      const text = fold(`${r.title} ${r.snippet}`);
+      byUrl.set(key, {...r, host, via: new Set([queries[i][0]]), match: nameWords.every((w) => text.includes(w)) ? 2 : surname && text.includes(surname) ? 1 : 0});
+    }
+  });
+
+  const results = [...byUrl.values()];
+  if (!results.length) {
+    if (errors.length === queries.length) {
+      return c.fail(new Error(`${errors[0]}${cfg.engine === "free" ? " – der kostenlose Dienst ist evtl. überlastet. In den Einstellungen (⚙) kannst du einen eigenen, kostenlosen API-Schlüssel eintragen." : ""}`));
+    }
+    return c.empty("Keine Treffer im Internet gefunden.");
+  }
+  for (const r of results) r.cat = categorize(r, nameWords);
+
+  const blocks = [];
+  if (kg?.title) {
+    const attrs = Object.entries(kg.attributes || {});
+    blocks.push(h("div", {class: "kg"}, h("strong", {}, kg.title), kg.type ? h("span", {class: "meta"}, ` – ${kg.type}`) : null,
+      kg.description ? h("p", {}, kg.description) : null,
+      attrs.length ? h("dl", {class: "facts"}, attrs.flatMap(([k, v]) => [h("dt", {}, k), h("dd", {}, v)])) : null,
+      kg.website ? h("p", {}, extLink(kg.website)) : null));
+  }
+  const relevant = results.filter((r) => r.match > 0), weak = results.filter((r) => r.match === 0);
+  for (const [key, title] of CATEGORIES) {
+    const group = relevant.filter((r) => r.cat === key).sort((a, b) => b.match - a.match || b.via.size - a.via.size);
+    if (!group.length) continue;
+    blocks.push(h("h3", {class: "webcat"}, `${title} (${group.length})`), h("ul", {class: "list"}, group.map((r) => webItem(r, name))));
+  }
+  if (!relevant.length) blocks.push(h("p", {class: "empty"}, "Kein Treffer nennt den Namen im Auszug."));
+  if (weak.length) {
+    blocks.push(h("details", {class: "wsec"}, h("summary", {}, `Weitere Treffer ohne den Namen im Auszug (${weak.length})`),
+      h("ul", {class: "list"}, weak.map((r) => webItem(r, name)))));
+  }
+  const notes = [`Suchmaschine: ${ENGINE_INFO[cfg.engine]} (ändern über ⚙).`];
+  if (errors.length) notes.push(`${errors.length} von ${queries.length} Teilsuchen fehlgeschlagen (${errors[0]}).`);
+  if (blocked) notes.push(`${blocked} Treffer von Personensuch-, Datenhändler- oder Leak-Seiten ausgeblendet.`);
+  fill(c.body, h("p", {class: "meta"}, "Sortiert nach Art der Seite. Treffer mit dem vollständigen Namen im Auszug stehen oben; „Seite auslesen“ zeigt, was dort über die Person steht."),
+    ...blocks, h("p", {class: "source"}, notes.join(" ")));
+  c.done(`${relevant.length} Seiten`);
+}
+
+function webItem(r, name) {
+  const reader = h("div", {class: "reader", hidden: true});
+  const btn = h("button", {class: "btn small", type: "button", onclick: () => {
+    if (!reader.hidden) { reader.hidden = true; btn.textContent = "Seite auslesen"; return; }
+    reader.hidden = false; btn.textContent = "Auszug schließen";
+    if (!reader.dataset.loaded) { reader.dataset.loaded = "1"; readPage(r.url, name, reader); }
+  }}, "Seite auslesen");
+  return h("li", {},
+    extLink(r.url, r.title || r.url),
+    h("div", {class: "meta"}, [r.host, `gefunden über: ${[...r.via].join(", ")}`, r.match === 0 ? "Name nicht im Auszug" : ""].filter(Boolean).join(" · ")),
+    r.snippet ? h("div", {class: "snippet"}, r.snippet) : null,
+    btn, reader);
+}
+
+function cleanMarkdown(md) {
+  return md.replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/^#+\s*/gm, "").replace(/[*_`>|]{1,3}/g, "").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+async function readPage(url, name, box) {
+  fill(box, h("span", {class: "spinner"}), " Seite wird ausgelesen …");
+  try {
+    const d = await jinaRead(url);
+    const text = cleanMarkdown(d.data?.content || "");
+    const words = fold(name).split(/\s+/).filter((w) => w.length > 2);
+    const needles = [fold(name), words[words.length - 1]].filter(Boolean);
+    const sentences = text.split(/(?<=[.!?])\s+|\n+/).map((t) => t.trim()).filter((t) => t.length > 15 && t.length < 500);
+    const mentions = [...new Set(sentences.filter((t) => needles.some((n) => fold(t).includes(n))))].slice(0, 12);
+    fill(box,
+      d.data?.title ? h("strong", {}, d.data.title) : null,
+      d.data?.description ? h("p", {class: "meta"}, d.data.description) : null,
+      mentions.length
+        ? [h("p", {}, `Stellen, an denen „${name}“ vorkommt:`), h("ul", {}, mentions.map((m) => h("li", {}, m)))]
+        : h("p", {class: "empty"}, "Der Name kommt im Seitentext nicht vor – eventuell eine andere Person oder der Text wird erst nachgeladen."),
+      text ? h("details", {}, h("summary", {}, "Ganzen Seitentext anzeigen"), h("pre", {class: "pagetext"}, text.slice(0, 8000) + (text.length > 8000 ? "\n…" : ""))) : null,
+      h("p", {class: "source"}, "Ausgelesen über Jina Reader"));
+  } catch (err) {
+    fill(box, h("p", {class: "empty"}, `Seite konnte nicht ausgelesen werden: ${err.message}`));
+  }
+}
+
+function openSettings() {
+  const cfg = webSettings();
+  const dlg = $("#settings");
+  dlg.querySelectorAll("input[name=engine]").forEach((r) => (r.checked = r.value === (storage.get("engine") || "free")));
+  for (const k of ["serperKey", "tavilyKey", "jinaKey"]) $("#" + k).value = cfg[k];
+  $("#settingsMsg").textContent = "";
+  dlg.showModal();
+}
+function saveSettings(ev) {
+  ev.preventDefault();
+  const engine = $("#settings input[name=engine]:checked")?.value || "free";
+  const keys = Object.fromEntries(["serperKey", "tavilyKey", "jinaKey"].map((k) => [k, $("#" + k).value.trim()]));
+  if (engine !== "free" && !keys[engine + "Key"]) { $("#settingsMsg").textContent = "Für diese Suchmaschine fehlt der API-Schlüssel."; return; }
+  storage.set("engine", engine);
+  for (const [k, v] of Object.entries(keys)) storage.set(k, v);
+  $("#settings").close();
+  const name = $("#nameInput").value.trim();
+  if (S && name.length >= 3) loadWeb(S.web, name, $("#ctxInput").value.trim(), searchSeq);
+}
+
 // ------------------------------------------------------------------ Weiterführende Links
 function renderLinks(c, name, ctx) {
   const phrase = `"${name.replace(/"/g, "")}"`;
@@ -729,6 +1010,9 @@ function init() {
     applyTheme(next); storage.set("theme", next);
   };
   document.querySelectorAll(".tab").forEach((t) => (t.onclick = () => showTab(t.dataset.tab)));
+  $("#settingsBtn").onclick = openSettings;
+  $("#settingsForm").onsubmit = saveSettings;
+  $("#settingsCancel").onclick = () => $("#settings").close();
 
   $("#nameForm").onsubmit = (ev) => { ev.preventDefault(); runSearch($("#nameInput").value, $("#ctxInput").value); };
   $("#handoverForm").onsubmit = (ev) => {
@@ -762,4 +1046,4 @@ function init() {
 }
 
 if (typeof document !== "undefined") init();
-if (typeof module !== "undefined") module.exports = {formatTime, ageOf, parseSections, gdeltDate};
+if (typeof module !== "undefined") module.exports = {formatTime, ageOf, parseSections, gdeltDate, fold, cleanMarkdown, bingTarget};

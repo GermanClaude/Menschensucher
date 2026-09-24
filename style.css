@@ -122,3 +122,25 @@ footer { max-width: 1000px; margin: 0 auto; padding: 8px 16px 32px; color: var(-
   .card { break-inside: avoid; border-color: #ccc; }
   details.wsec { display: block; }
 }
+
+/* Websuche */
+h3.webcat { margin: 18px 0 4px; font-size: 15px; color: var(--accent); }
+h3.webcat:first-of-type { margin-top: 8px; }
+.snippet { font-size: 14px; margin: 2px 0 6px; }
+.btn.small { padding: 4px 10px; font-size: 13px; font-weight: 500; }
+.reader { margin-top: 8px; padding: 10px 12px; background: var(--panel2); border-radius: 10px; font-size: 14px; }
+.reader ul { margin: 4px 0; padding-left: 1.2em; }
+.reader li { padding: 2px 0; border: 0; }
+.pagetext { white-space: pre-wrap; font: 13px/1.5 system-ui, sans-serif; max-height: 400px; overflow: auto; margin: 6px 0 0; }
+.kg { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+.meta { color: var(--muted); font-size: 13px; }
+
+/* Einstellungen */
+dialog { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); color: var(--text); max-width: min(520px, calc(100vw - 32px)); width: 100%; padding: 18px; }
+dialog::backdrop { background: rgba(0,0,0,.5); }
+dialog h2 { margin: 0 0 6px; font-size: 18px; }
+.opt { display: flex; gap: 10px; align-items: flex-start; margin: 12px 0 6px; cursor: pointer; }
+.opt input { margin-top: 5px; }
+.opt small { color: var(--muted); }
+.err-text { color: var(--err); font-size: 14px; min-height: 1em; }
+.toolbar.end { justify-content: flex-end; margin: 8px 0 0; }

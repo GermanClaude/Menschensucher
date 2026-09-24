@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="description" content="Personensuche in öffentlichen, legalen Quellen: Wikipedia, Wikidata, Deutsche Nationalbibliothek, Nachrichten, Publikationen, Archive – plus Rückwärts-Bildersuche.">
+<meta name="description" content="Personensuche im gesamten öffentlichen Internet: Websites, Profile, Unternehmen, Presse, Wikipedia, Wikidata, Deutsche Nationalbibliothek, Publikationen, Archive – plus Rückwärts-Bildersuche.">
 <title>Personensuche</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234fd1ff' stroke-width='2'%3E%3Ccircle cx='10' cy='8' r='4'/%3E%3Cpath d='M3 21a7 7 0 0 1 12-5'/%3E%3Ccircle cx='18' cy='17' r='3'/%3E%3Cpath d='m20.5 19.5 2 2'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="style.css">
@@ -14,9 +14,10 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 21a7 7 0 0 1 12-5"/><circle cx="18" cy="17" r="3"/><path d="m20.5 19.5 2 2"/></svg>
     <div>
       <h1>Personensuche</h1>
-      <p>Öffentliche, legale Quellen – kein Datenhandel, keine Leaks, keine Gesichtserkennung</p>
+      <p>Das ganze öffentliche Internet – ohne Datenhändler, Leaks oder Gesichtserkennung</p>
     </div>
   </div>
+  <button class="icon-btn" id="settingsBtn" title="Suchmaschine einstellen" aria-label="Suchmaschine einstellen">⚙</button>
   <button class="icon-btn" id="themeBtn" title="Hell/Dunkel umschalten" aria-label="Hell/Dunkel umschalten">◐</button>
 </header>
 
@@ -33,7 +34,8 @@
       <input id="ctxInput" type="search" placeholder="Zusatz (optional): Beruf, Ort, Firma …" aria-label="Zusatz">
       <button class="btn primary" type="submit">Suchen</button>
     </form>
-    <p class="hint">Tipp: Bei häufigen Namen hilft ein Zusatz wie „Physikerin“, „Berlin“ oder ein Firmenname.
+    <p class="hint">Durchsucht das ganze öffentliche Internet – eigene Websites, Firmen, Profile, Presse – und dazu Wikipedia,
+      Bibliotheken und Fachdatenbanken. Tipp: Bei häufigen Namen hilft ein Zusatz wie „Physikerin“, „Berlin“ oder ein Firmenname.
       Namensgleichheit ist normal – prüfe bei jedem Treffer, ob wirklich dieselbe Person gemeint ist.</p>
 
     <div id="candidates" class="candidates" hidden></div>
@@ -77,9 +79,33 @@
   </section>
 </main>
 
+<dialog id="settings">
+  <form id="settingsForm">
+    <h2>Suchmaschine für die Websuche</h2>
+    <p class="meta">Schlüssel werden nur in diesem Browser gespeichert und nur an den jeweiligen Anbieter geschickt.</p>
+    <label class="opt"><input type="radio" name="engine" value="free">
+      <span><strong>Kostenlos, ohne Anmeldung</strong><br><small>DuckDuckGo über Jina Reader. Kann bei vielen Nutzern kurzzeitig überlastet sein.</small></span></label>
+    <label class="opt"><input type="radio" name="engine" value="serper">
+      <span><strong>Google-Ergebnisse (Serper.dev)</strong><br><small>Beste Trefferqualität, 2.500 Suchen gratis – Schlüssel auf <a href="https://serper.dev" target="_blank" rel="noopener">serper.dev</a></small></span></label>
+    <input id="serperKey" class="field" placeholder="Serper-API-Schlüssel" autocomplete="off">
+    <label class="opt"><input type="radio" name="engine" value="tavily">
+      <span><strong>Tavily</strong><br><small>1.000 Suchen/Monat gratis – Schlüssel auf <a href="https://tavily.com" target="_blank" rel="noopener">tavily.com</a></small></span></label>
+    <input id="tavilyKey" class="field" placeholder="Tavily-API-Schlüssel" autocomplete="off">
+    <label class="opt"><input type="radio" name="engine" value="jina">
+      <span><strong>Jina Search</strong><br><small>Gratis-Kontingent – Schlüssel auf <a href="https://jina.ai" target="_blank" rel="noopener">jina.ai</a>. Der Jina-Schlüssel beschleunigt auch „Seite auslesen“ und die kostenlose Suche.</small></span></label>
+    <input id="jinaKey" class="field" placeholder="Jina-API-Schlüssel (optional)" autocomplete="off">
+    <p id="settingsMsg" class="err-text"></p>
+    <div class="toolbar end">
+      <button class="btn" type="button" id="settingsCancel">Abbrechen</button>
+      <button class="btn primary" type="submit">Speichern</button>
+    </div>
+  </form>
+</dialog>
+
 <footer>
-  <p>Alle Daten stammen live aus öffentlich zugänglichen Quellen (Wikipedia, Wikidata, Deutsche Nationalbibliothek via lobid.org,
-    OpenAlex, ORCID, GDELT, Internet Archive). Die Suche läuft vollständig in deinem Browser; nichts wird gespeichert.
+  <p>Die Websuche durchsucht das gesamte öffentlich zugängliche Internet (über DuckDuckGo/Jina Reader oder einen selbst gewählten Anbieter).
+    Dazu kommen Wikipedia, Wikidata, Deutsche Nationalbibliothek via lobid.org, OpenAlex, ORCID, GDELT und Internet Archive.
+    Die Seite läuft in deinem Browser und speichert nichts auf einem Server. Personensuchmaschinen, Datenhändler und Leak-Seiten werden ausgeblendet.
     Nutze die Ergebnisse verantwortungsvoll: Informationen über Privatpersonen zu sammeln, sie zu belästigen oder
     bloßzustellen kann strafbar sein (u. a. § 238 StGB Nachstellung, DSGVO).</p>
 </footer>
